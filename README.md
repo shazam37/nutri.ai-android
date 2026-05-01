@@ -55,4 +55,4 @@ buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:8000/api/v1/\"")
 3. Sync Gradle and run on an emulator or physical device.
 
 ## 📸 Screenshots
-*(Add screenshots here in the future)*
+<p align="center"> <img src="screenshots/home.jpeg" width="250"/> <img src="screenshots/home_2.jpeg" width="250"/> <img src="screenshots/profile.jpeg" width="250"/> </p> <p align="center"> <b>Home & Profile Screens</b> </p> <br/> <p align="center"> <img src="screenshots/history.jpeg" width="250"/> <img src="screenshots/history_2.jpeg" width="250"/> <img src="screenshots/plan.jpeg" width="250"/> </p> <p align="center"> <b>History & Planning Features</b> </p> <br/> <p align="center"> <img src="screenshots/kitchen.jpeg" width="250"/> <img src="screenshots/admin.jpeg" width="250"/> <img src="screenshots/log.jpeg" width="250"/> </p> <p align="center"> <b>Kitchen, Admin & Logs</b> </p>
