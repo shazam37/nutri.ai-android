@@ -42,6 +42,7 @@ data class UiState(
     val selectedTab: AppTab = AppTab.Home,
     val profile: UserProfile? = null,
     val activePlan: MealPlanResponse? = null,
+    val dismissedPlanId: String? = null,
     val water: WaterResponse? = null,
     val micros: MicrosResponse? = null,
     val logsForDate: LogsForDateResponse? = null,
@@ -199,11 +200,18 @@ class NutriViewModel(application: Application) : AndroidViewModel(application) {
 
     fun loadActivePlan() = runLoading {
         val response = repository.getActivePlan()
-        state.value = state.value.copy(activePlan = response.activePlan)
+        val plan = response.activePlan
+        // Only show the plan if it hasn't been dismissed by the user manually
+        if (plan?.planId != state.value.dismissedPlanId) {
+            state.value = state.value.copy(activePlan = plan)
+        } else {
+            state.value = state.value.copy(activePlan = null)
+        }
     }
 
     fun clearActivePlan() {
-        state.value = state.value.copy(activePlan = null)
+        val planId = state.value.activePlan?.planId
+        state.value = state.value.copy(activePlan = null, dismissedPlanId = planId)
     }
 
     fun reviseWeek() = runLoading {
