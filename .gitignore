@@ -69,3 +69,5 @@ cmake-build-*/
 # Temporary files
 *.tmp
 *.temp
+
+*.hprof
