@@ -1,4 +1,4 @@
-# NutriAI Android 🥗🤖
+# NutriAI Android 
 
 NutriAI is an AI-powered nutrition coaching application built with **Kotlin** and **Jetpack Compose**. It serves as the mobile frontend for the NutriAI ecosystem, providing users with personalized dietary guidance, intelligent meal logging, and inventory-aware suggestions.
 
