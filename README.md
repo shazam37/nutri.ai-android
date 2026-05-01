@@ -2,7 +2,7 @@
 
 NutriAI is an AI-powered nutrition coaching application built with **Kotlin** and **Jetpack Compose**. It serves as the mobile frontend for the NutriAI ecosystem, providing users with personalized dietary guidance, intelligent meal logging, and inventory-aware suggestions.
 
-## 🚀 Key Features
+## Key Features
 
 - **Multi-Step Onboarding**: Personalized profile setup including body metrics, activity levels, and dietary goals (weight loss, maintenance, muscle gain).
 - **Intelligent Meal Logging**: 
@@ -27,7 +27,7 @@ NutriAI is an AI-powered nutrition coaching application built with **Kotlin** an
     - Detailed daily log history and editing.
 - **Admin Tools**: Manual coach triggers and background scheduler status monitoring.
 
-## 🛠 Tech Stack
+## Tech Stack
 
 - **Language**: Kotlin
 - **UI Framework**: Jetpack Compose with Material 3
@@ -36,7 +36,7 @@ NutriAI is an AI-powered nutrition coaching application built with **Kotlin** an
 - **Concurrency**: Kotlin Coroutines & Flow
 - **Storage**: Encrypted/Persistent Auth Storage
 
-## 🛠 Setup & Development
+## Setup & Development
 
 ### Prerequisites
 - Android Studio Ladybug or newer.
@@ -54,5 +54,5 @@ buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:8000/api/v1/\"")
 2. Open the project in Android Studio.
 3. Sync Gradle and run on an emulator or physical device.
 
-## 📸 Screenshots
+## Screenshots
 <p align="center"> <img src="screenshots/home.jpeg" width="250"/> <img src="screenshots/home_2.jpeg" width="250"/> <img src="screenshots/profile.jpeg" width="250"/> </p> <p align="center"> <b>Home & Profile Screens</b> </p> <br/> <p align="center"> <img src="screenshots/history.jpeg" width="250"/> <img src="screenshots/history_2.jpeg" width="250"/> <img src="screenshots/plan.jpeg" width="250"/> </p> <p align="center"> <b>History & Planning Features</b> </p> <br/> <p align="center"> <img src="screenshots/kitchen.jpeg" width="250"/> <img src="screenshots/admin.jpeg" width="250"/> <img src="screenshots/log.jpeg" width="250"/> </p> <p align="center"> <b>Kitchen, Admin & Logs</b> </p>
