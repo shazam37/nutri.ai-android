@@ -21,7 +21,7 @@ object Network {
     fun createApi(authStore: AuthStore): NutriApi {
         val logging = HttpLoggingInterceptor().apply {
             level = if (BuildConfig.DEBUG) {
-                HttpLoggingInterceptor.Level.BASIC
+                HttpLoggingInterceptor.Level.BODY
             } else {
                 HttpLoggingInterceptor.Level.NONE
             }
@@ -31,6 +31,9 @@ object Network {
         lateinit var api: NutriApi
 
         val client = OkHttpClient.Builder()
+            .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(90, java.util.concurrent.TimeUnit.SECONDS)
+            .writeTimeout(90, java.util.concurrent.TimeUnit.SECONDS)
             .addInterceptor { chain ->
                 val token = authStore.accessToken
                 val request = if (token.isNullOrBlank()) {

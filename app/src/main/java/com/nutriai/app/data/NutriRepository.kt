@@ -48,8 +48,10 @@ class NutriRepository(
             aiNotes = analysis.aiNotes,
             usdaValidation = analysis.usdaValidation,
             description = description,
-            source = "text"
+            imageUrl = analysis.imageUrl,
+            source = if (analysis.imageUrl != null) "image" else "text"
         )
+
         return api.logReviewedMeal(request)
     }
 

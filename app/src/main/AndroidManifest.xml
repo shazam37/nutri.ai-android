@@ -1,5 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <application
         android:name=".NutriAiApplication"
@@ -7,6 +9,16 @@
         android:label="NutriAI"
         android:usesCleartextTraffic="true"
         android:theme="@style/Theme.NutriAI">
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="com.nutriai.app.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
         <activity
             android:name=".MainActivity"
             android:exported="true">

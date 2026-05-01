@@ -1,7 +1,12 @@
 package com.nutriai.app.ui
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,12 +30,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Analytics
+import androidx.compose.material.icons.outlined.CameraAlt
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material.icons.outlined.LocalDining
+import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material.icons.outlined.RestaurantMenu
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Restaurant
@@ -77,12 +84,17 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.FileProvider
+import coil.compose.AsyncImage
+import coil.compose.rememberAsyncImagePainter
 import com.nutriai.app.data.AnalyzeResponse
 import com.nutriai.app.data.CoachCard
 import com.nutriai.app.data.EatOption
@@ -100,6 +112,7 @@ import com.nutriai.app.data.UpdateItemRequest
 import com.nutriai.app.data.UpdateProfileRequest
 import com.nutriai.app.data.UserProfile
 import com.nutriai.app.data.WaterResponse
+import java.io.File
 import kotlin.math.roundToInt
 
 @Composable
@@ -555,7 +568,62 @@ private fun HomeScreen(viewModel: NutriViewModel) {
             MicrosView(viewModel)
         }
 
+        val logsToday = ui.logsForDate?.logs?.filter { it.imageUrl != null } ?: emptyList()
+        if (logsToday.isNotEmpty()) {
+            item {
+                Text("Today's Visual Log", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    logsToday.forEach { log ->
+                        Box(
+                            modifier = Modifier
+                                .size(120.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                        ) {
+                            AsyncImage(
+                                model = log.imageUrl,
+                                contentDescription = log.description,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop,
+                                onError = { android.util.Log.e("NutriAI", "Carousel image error: ${it.result.throwable.message}") }
+                            )
+                            Surface(
+                                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
+                                color = Color.Black.copy(alpha = 0.6f)
+                            ) {
+                                Text(
+                                    text = "${log.totalMacros.calories.roundToInt()} kcal",
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    modifier = Modifier.padding(vertical = 2.dp),
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         item { ErrorText(ui.error) }
+    }
+}
+
+@Composable
+private fun MacroPill(label: String, value: String, color: Color) {
+    Surface(
+        shape = RoundedCornerShape(4.dp),
+        color = color.copy(alpha = 0.1f)
+    ) {
+        Row(Modifier.padding(horizontal = 6.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(label, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = color)
+            Spacer(Modifier.width(4.dp))
+            Text(value, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+        }
     }
 }
 
@@ -750,9 +818,41 @@ private fun CoachCardView(card: CoachCard, viewModel: NutriViewModel) {
 @Composable
 private fun LogScreen(viewModel: NutriViewModel) {
     val ui by viewModel.state
+    val context = LocalContext.current
     var description by rememberSaveable { mutableStateOf("") }
     var mealType by rememberSaveable { mutableStateOf("lunch") }
     var imageBase64 by remember { mutableStateOf<String?>(null) }
+    var capturedImageUri by remember { mutableStateOf<Uri?>(null) }
+    var tempUri by remember { mutableStateOf<Uri?>(null) }
+
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+        if (success) {
+            tempUri?.let { uri ->
+                capturedImageUri = uri
+                imageBase64 = ImageUtils.uriToBase64(context, uri)
+            }
+        }
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            val directory = context.externalCacheDir ?: context.cacheDir
+            val file = File(directory, "temp_meal_${System.currentTimeMillis()}.jpg")
+            val uri = FileProvider.getUriForFile(context, "com.nutriai.app.fileprovider", file)
+            tempUri = uri
+            cameraLauncher.launch(uri)
+        }
+    }
+
+    val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri?.let {
+            capturedImageUri = it
+            imageBase64 = ImageUtils.uriToBase64(context, it)
+        }
+    }
+
     val analysis = ui.pendingAnalysis
 
     LazyColumn(
@@ -791,32 +891,61 @@ private fun LogScreen(viewModel: NutriViewModel) {
 
                 Spacer(Modifier.height(12.dp))
 
+                        if (capturedImageUri != null) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                    ) {
+                        AsyncImage(
+                            model = capturedImageUri,
+                            contentDescription = "Selected food image",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                        IconButton(
+                            onClick = { capturedImageUri = null; imageBase64 = null },
+                            modifier = Modifier.align(Alignment.TopEnd).background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                        ) {
+                            Icon(Icons.Outlined.Delete, null, tint = Color.White)
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                }
+
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlinedButton(
                         onClick = { 
-                            // Simulate camera
-                            imageBase64 = "simulated_food_image_base64"
+                            permissionLauncher.launch(android.Manifest.permission.CAMERA)
                         },
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Icon(Icons.Outlined.Add, null, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Outlined.CameraAlt, null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
-                        Text("Add Photo")
+                        Text("Camera")
                     }
-                    Button(
-                        onClick = { viewModel.analyze(description, mealType, imageBase64) },
+                    OutlinedButton(
+                        onClick = { galleryLauncher.launch("image/*") },
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp),
-                        enabled = !ui.loading && (description.isNotBlank() || imageBase64 != null)
+                        shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text("Analyze")
+                        Icon(Icons.Outlined.PhotoLibrary, null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Gallery")
                     }
                 }
                 
-                if (imageBase64 != null) {
-                    Spacer(Modifier.height(8.dp))
-                    Text("Photo attached", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.height(12.dp))
+
+                Button(
+                    onClick = { viewModel.analyze(description, mealType, imageBase64) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    enabled = !ui.loading && (description.isNotBlank() || imageBase64 != null)
+                ) {
+                    Text("Analyze Meal")
                 }
             }
         }
@@ -861,13 +990,26 @@ private fun LogScreen(viewModel: NutriViewModel) {
                                 Text("Total Calories", style = MaterialTheme.typography.labelMedium)
                                 Text("${analysis.totalMacros.calories.roundToInt()} kcal", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
                             }
-                            Button(
-                                onClick = { viewModel.logReviewed(description, mealType) },
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Icon(Icons.Outlined.Check, null)
-                                Spacer(Modifier.width(8.dp))
-                                Text("Confirm Log")
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedButton(
+                                    onClick = { 
+                                        description = ""
+                                        imageBase64 = null
+                                        capturedImageUri = null
+                                        viewModel.clearAnalysis() 
+                                    },
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Text("Reset")
+                                }
+                                Button(
+                                    onClick = { viewModel.logReviewed(description, mealType) },
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Icon(Icons.Outlined.Check, null)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Confirm")
+                                }
                             }
                         }
                     }
@@ -879,11 +1021,23 @@ private fun LogScreen(viewModel: NutriViewModel) {
             item {
                 CardBlock(container = MaterialTheme.colorScheme.tertiaryContainer) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Outlined.Check, null, tint = MaterialTheme.colorScheme.onTertiaryContainer)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Meal Logged Successfully", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                        if (log.imageUrl != null) {
+                            AsyncImage(
+                                model = log.imageUrl,
+                                contentDescription = null,
+                                modifier = Modifier.size(40.dp).clip(CircleShape),
+                                contentScale = ContentScale.Crop
+                            )
+                            Spacer(Modifier.width(12.dp))
+                        } else {
+                            Icon(Icons.Outlined.Check, null, tint = MaterialTheme.colorScheme.onTertiaryContainer)
+                            Spacer(Modifier.width(8.dp))
+                        }
+                        Column {
+                            Text("Meal Logged Successfully", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                            Text("Total today: ${log.dailyTotals.calories.roundToInt()} kcal", style = MaterialTheme.typography.bodySmall)
+                        }
                     }
-                    Text("Total today: ${log.dailyTotals.calories.roundToInt()} kcal", style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
@@ -1033,12 +1187,15 @@ private fun PlanScreen(viewModel: NutriViewModel) {
             Text("AI-generated plans tailored to your kitchen and goals.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
-        if (activePlan != null) {
+        val today = java.time.LocalDate.now().toString()
+        val isPlanForToday = activePlan?.date == null || activePlan.date == today
+
+        if (activePlan != null && isPlanForToday) {
             item {
                 Text("Today's Active Plan", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             }
             item {
-                ActivePlanView(activePlan)
+                ActivePlanView(activePlan, viewModel)
             }
         } else {
             item {
@@ -1111,12 +1268,18 @@ private fun PlanScreen(viewModel: NutriViewModel) {
 }
 
 @Composable
-private fun ActivePlanView(plan: MealPlanResponse) {
+private fun ActivePlanView(plan: MealPlanResponse, viewModel: NutriViewModel) {
     CardBlock(container = MaterialTheme.colorScheme.primaryContainer) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Outlined.Check, null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
             Spacer(Modifier.width(8.dp))
-            Text("Currently Following", fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+            Text("Currently Following", fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.weight(1f))
+            TextButton(
+                onClick = { viewModel.clearActivePlan() },
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f))
+            ) {
+                Text("Complete", style = MaterialTheme.typography.labelSmall)
+            }
         }
         Spacer(Modifier.height(8.dp))
         Text(plan.planSummary, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
@@ -1208,32 +1371,90 @@ private fun HistoryScreen(viewModel: NutriViewModel) {
                         HorizontalDivider(Modifier.padding(vertical = 12.dp))
                         Text("Meals for ${day.date}:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(8.dp))
-                        logsForThisDay.forEach { log ->
-                            Column(Modifier.padding(vertical = 4.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(log.description, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
-                                    Text("${log.totalMacros.calories.roundToInt()} kcal", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                                }
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Text("P: ${log.totalMacros.proteinG.roundToInt()}g", style = MaterialTheme.typography.labelSmall)
-                                    Text("C: ${log.totalMacros.carbsG.roundToInt()}g", style = MaterialTheme.typography.labelSmall)
-                                    Text("F: ${log.totalMacros.fatG.roundToInt()}g", style = MaterialTheme.typography.labelSmall)
-                                    if (log.totalMacros.fiberG > 0) {
-                                        Text("Fiber: ${log.totalMacros.fiberG.roundToInt()}g", style = MaterialTheme.typography.labelSmall)
-                                    }
-                                }
-                                if (log.micros.isNotEmpty()) {
-                                    Text(
-                                        text = "Micros: " + log.micros.entries.joinToString(", ") { "${it.key}: ${it.value.roundToInt()}" },
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
-                                        maxLines = 2,
-                                        overflow = TextOverflow.Ellipsis
+                logsForThisDay.forEach { log ->
+                    Column(Modifier.padding(vertical = 12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (!log.imageUrl.isNullOrBlank()) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(80.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    AsyncImage(
+                                        model = log.imageUrl,
+                                        contentDescription = null,
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Crop
                                     )
                                 }
-                                Text("${log.mealType.uppercase()} • ${log.loggedAt.split("T").lastOrNull()?.take(5) ?: ""}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Spacer(Modifier.width(16.dp))
+                            }
+                            Column(Modifier.weight(1f)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    val displayName = when {
+                                        log.description.isNotBlank() -> log.description
+                                        log.foodItems.isNotEmpty() -> log.foodItems.first().name
+                                        else -> "Unnamed Meal"
+                                    }
+                                    Text(
+                                        text = displayName,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.SemiBold,
+                                        modifier = Modifier.weight(1f),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = "${log.totalMacros.calories.roundToInt()} kcal",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
+                                    MacroPill("P", "${log.totalMacros.proteinG.roundToInt()}g", MaterialTheme.colorScheme.tertiary)
+                                    MacroPill("C", "${log.totalMacros.carbsG.roundToInt()}g", MaterialTheme.colorScheme.secondary)
+                                    MacroPill("F", "${log.totalMacros.fatG.roundToInt()}g", MaterialTheme.colorScheme.error)
+                                    
+                                    log.aiConfidence?.let { conf ->
+                                        val confPct = (conf * 100).roundToInt()
+                                        val color = when {
+                                            conf >= 0.8 -> Color(0xFF43A047) // Green
+                                            conf >= 0.5 -> Color(0xFFFB8C00) // Orange
+                                            else -> MaterialTheme.colorScheme.error
+                                        }
+                                        Surface(
+                                            shape = RoundedCornerShape(4.dp),
+                                            color = color.copy(alpha = 0.1f),
+                                            border = BorderStroke(1.dp, color.copy(alpha = 0.2f))
+                                        ) {
+                                            Text(
+                                                text = "$confPct% confident",
+                                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                                color = color,
+                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+                                }
+                                Text("${log.mealType.uppercase()} • ${log.loggedAt.split("T").lastOrNull()?.take(5) ?: ""}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
                             }
                         }
+                        if (log.micros.isNotEmpty()) {
+                            Text(
+                                text = "Micros: " + log.micros.entries.joinToString(", ") { "${it.key}: ${it.value.roundToInt()}" },
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(top = 8.dp)
+                            )
+                        }
+                    }
+                }
                     }
 
                     Button(
@@ -1373,17 +1594,33 @@ private fun LegendDot(label: String, color: Color) {
 
 @Composable
 private fun MacroTrendChart(days: List<com.nutriai.app.data.DailyEntry>) {
-    val maxMacro = (days.maxOfOrNull { maxOf(it.proteinG, it.carbsG, it.fatG) } ?: 100.0).coerceAtLeast(100.0).toFloat()
+    val last7 = days.takeLast(7)
+    val maxMacro = (last7.maxOfOrNull { maxOf(it.proteinG, it.carbsG, it.fatG) } ?: 100.0).coerceAtLeast(100.0).toFloat()
     
     androidx.compose.foundation.Canvas(
-        modifier = Modifier.fillMaxWidth().height(150.dp).padding(horizontal = 8.dp)
+        modifier = Modifier.fillMaxWidth().height(180.dp).padding(start = 40.dp, end = 8.dp, bottom = 24.dp)
     ) {
         val width = size.width
         val height = size.height
         val spacing = width / 7f
         val barWidth = spacing / 4f
 
-        days.takeLast(7).forEachIndexed { index, day ->
+        val axisPaint = android.graphics.Paint().apply {
+            color = android.graphics.Color.LTGRAY
+            textSize = 24f
+            textAlign = android.graphics.Paint.Align.RIGHT
+        }
+
+        // Y-Axis Labels & Grid Lines
+        val steps = 4
+        for (i in 0..steps) {
+            val y = height - (i * height / steps)
+            val value = (i * maxMacro / steps).roundToInt()
+            drawContext.canvas.nativeCanvas.drawText("${value}g", -10.dp.toPx(), y + 8f, axisPaint)
+            drawLine(Color.LightGray.copy(alpha = 0.3f), androidx.compose.ui.geometry.Offset(0f, y), androidx.compose.ui.geometry.Offset(width, y), 1.dp.toPx())
+        }
+
+        last7.forEachIndexed { index, day ->
             val xBase = index * spacing
             
             // Protein (Blue)
@@ -1405,19 +1642,20 @@ private fun MacroTrendChart(days: List<com.nutriai.app.data.DailyEntry>) {
                 height + 20.dp.toPx(),
                 android.graphics.Paint().apply {
                     color = android.graphics.Color.GRAY
-                    textSize = 24f
+                    textSize = 22f
                     textAlign = android.graphics.Paint.Align.CENTER
                 }
             )
         }
     }
-    Spacer(Modifier.height(28.dp))
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 8.dp)) {
+    Spacer(Modifier.height(12.dp))
+    Row(horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
         LegendItem("Protein", Color(0xFF64B5F6))
+        Spacer(Modifier.width(16.dp))
         LegendItem("Carbs", Color(0xFFFFD54F))
+        Spacer(Modifier.width(16.dp))
         LegendItem("Fats", Color(0xFFE57373))
     }
-    Spacer(Modifier.height(16.dp))
 }
 
 @Composable
@@ -1431,31 +1669,54 @@ private fun LegendItem(label: String, color: Color) {
 
 @Composable
 private fun CalorieTrendChart(days: List<com.nutriai.app.data.DailyEntry>) {
-    val maxCal = (days.maxOfOrNull { it.calories } ?: 2500.0).coerceAtLeast(2500.0).toFloat()
-    val targetCal = days.firstOrNull()?.targetCalories?.toFloat() ?: 2000f
+    val last7 = days.takeLast(7)
+    val maxCal = (last7.maxOfOrNull { it.calories } ?: 2500.0).coerceAtLeast(2500.0).toFloat()
+    val targetCal = days.lastOrNull()?.targetCalories?.toFloat() ?: 2000f
     
     androidx.compose.foundation.Canvas(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(150.dp)
-            .padding(horizontal = 8.dp)
+        modifier = Modifier.fillMaxWidth().height(180.dp).padding(start = 45.dp, end = 8.dp, bottom = 24.dp)
     ) {
         val width = size.width
         val height = size.height
         val barWidth = width / 14f
         val spacing = width / 7f
+
+        val axisPaint = android.graphics.Paint().apply {
+            color = android.graphics.Color.LTGRAY
+            textSize = 24f
+            textAlign = android.graphics.Paint.Align.RIGHT
+        }
+
+        // Y-Axis Labels
+        val steps = 5
+        for (i in 0..steps) {
+            val y = height - (i * height / steps)
+            val value = (i * maxCal / steps).roundToInt()
+            drawContext.canvas.nativeCanvas.drawText("$value", -10.dp.toPx(), y + 8f, axisPaint)
+            drawLine(Color.LightGray.copy(alpha = 0.2f), androidx.compose.ui.geometry.Offset(0f, y), androidx.compose.ui.geometry.Offset(width, y), 1.dp.toPx())
+        }
         
-        // Draw Target Line
+        // Draw Target Line with Label
         val targetY = height - (targetCal / maxCal * height)
         drawLine(
-            color = Color.Gray.copy(alpha = 0.3f),
+            color = Color.Gray.copy(alpha = 0.5f),
             start = androidx.compose.ui.geometry.Offset(0f, targetY),
             end = androidx.compose.ui.geometry.Offset(width, targetY),
-            strokeWidth = 2.dp.toPx(),
-            pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
+            strokeWidth = 1.dp.toPx(),
+            pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(15f, 10f), 0f)
+        )
+        drawContext.canvas.nativeCanvas.drawText(
+            "Target: ${targetCal.toInt()}",
+            width,
+            targetY - 5.dp.toPx(),
+            android.graphics.Paint().apply {
+                color = android.graphics.Color.GRAY
+                textSize = 20f
+                textAlign = android.graphics.Paint.Align.RIGHT
+            }
         )
 
-        days.takeLast(7).forEachIndexed { index, day ->
+        last7.forEachIndexed { index, day ->
             val barHeight = (day.calories.toFloat() / maxCal * height).coerceAtLeast(5f)
             val x = index * spacing + (spacing - barWidth) / 2
             val y = height - barHeight
@@ -1467,20 +1728,19 @@ private fun CalorieTrendChart(days: List<com.nutriai.app.data.DailyEntry>) {
                 cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx())
             )
             
-            // Draw day label
             drawContext.canvas.nativeCanvas.drawText(
                 formatDateForChart(day.date),
                 x + barWidth/2,
                 height + 20.dp.toPx(),
                 android.graphics.Paint().apply {
                     color = android.graphics.Color.GRAY
-                    textSize = 24f
+                    textSize = 22f
                     textAlign = android.graphics.Paint.Align.CENTER
                 }
             )
         }
     }
-    Spacer(Modifier.height(28.dp))
+    Spacer(Modifier.height(12.dp))
 }
 
 private fun formatDateForChart(dateStr: String): String {
@@ -1630,9 +1890,13 @@ private fun AdminScreen(viewModel: NutriViewModel) {
                 ui.schedulerStatus?.jobs?.forEach { job ->
                     HorizontalDivider(Modifier.padding(vertical = 8.dp))
                     Text(job.name, fontWeight = FontWeight.Bold)
-                    Text("ID: ${job.id}", style = MaterialTheme.typography.bodySmall)
-                    Text("Next: ${job.nextRunTime}", style = MaterialTheme.typography.bodySmall)
-                    Text("Trigger: ${job.trigger}", style = MaterialTheme.typography.bodySmall)
+                    val formattedTime = try { 
+                        // Show only HH:mm from ISO string
+                        job.nextRunTime.split("T").lastOrNull()?.take(5) ?: job.nextRunTime 
+                    } catch(e: Exception) { job.nextRunTime }
+                    
+                    Text("Next check at: $formattedTime", style = MaterialTheme.typography.bodySmall)
+                    Text("Run frequency: ${job.trigger.replace("_", " ")}", style = MaterialTheme.typography.bodySmall)
                 }
             }
         }

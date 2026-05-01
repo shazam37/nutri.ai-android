@@ -91,7 +91,8 @@ data class AnalyzeResponse(
     @SerialName("agent_steps") val agentSteps: List<JsonElement> = emptyList(),
     @SerialName("agent_invoked") val agentInvoked: Boolean = false,
     @SerialName("usda_validation") val usdaValidation: JsonObject = JsonObject(emptyMap()),
-    @SerialName("suggested_log_payload") val suggestedLogPayload: ReviewedLogRequest? = null
+    @SerialName("suggested_log_payload") val suggestedLogPayload: ReviewedLogRequest? = null,
+    @SerialName("image_url") val imageUrl: String? = null
 )
 
 @Serializable
@@ -129,7 +130,8 @@ data class LogMealResponse(
     @SerialName("remaining_protein_g") val remainingProteinG: Double = 0.0,
     @SerialName("meals_logged_today") val mealsLoggedToday: Int = 0,
     @SerialName("binge_alert") val bingeAlert: Boolean = false,
-    val reviewed: Boolean = false
+    val reviewed: Boolean = false,
+    @SerialName("image_url") val imageUrl: String? = null
 )
 
 @Serializable
@@ -426,7 +428,8 @@ data class MealPlanResponse(
     val meals: List<PlanMeal> = emptyList(),
     @SerialName("total_plan_macros") val totalPlanMacros: MacroTotals = MacroTotals(),
     val trigger: String = "user_request",
-    @SerialName("plan_id") val planId: String? = null
+    @SerialName("plan_id") val planId: String? = null,
+    val date: String? = null
 )
 
 @Serializable

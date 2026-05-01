@@ -112,7 +112,12 @@ class NutriViewModel(application: Application) : AndroidViewModel(application) {
 
     fun analyze(description: String, mealType: String, imageBase64: String? = null) = runLoading {
         val analysis = repository.analyzeMeal(description, mealType, imageBase64)
+        android.util.Log.d("NutriAI", "Analyze Response URL: ${analysis.imageUrl}")
         state.value = state.value.copy(pendingAnalysis = analysis, error = null)
+    }
+
+    fun clearAnalysis() {
+        state.value = state.value.copy(pendingAnalysis = null)
     }
 
     fun logReviewed(description: String, mealType: String) = runLoading {
@@ -195,6 +200,10 @@ class NutriViewModel(application: Application) : AndroidViewModel(application) {
     fun loadActivePlan() = runLoading {
         val response = repository.getActivePlan()
         state.value = state.value.copy(activePlan = response.activePlan)
+    }
+
+    fun clearActivePlan() {
+        state.value = state.value.copy(activePlan = null)
     }
 
     fun reviseWeek() = runLoading {
