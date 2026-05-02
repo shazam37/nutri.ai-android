@@ -95,7 +95,7 @@ class NutriRepository(
         return api.logsForDate(requireNotNull(authStore.userId), date ?: java.time.LocalDate.now().toString())
     }
 
-    suspend fun deleteLog(logId: String): Map<String, String> {
+    suspend fun deleteLog(logId: String): Map<String, Boolean> {
         return api.deleteLog(logId)
     }
 
@@ -143,7 +143,7 @@ class NutriRepository(
         return api.scanInventoryImage(ScanImageRequest(imagePreviewBase64))
     }
 
-    suspend fun deleteInventoryItem(itemId: String): Map<String, String> {
+    suspend fun deleteInventoryItem(itemId: String): Map<String, Boolean> {
         return api.deleteInventoryItem(itemId)
     }
 

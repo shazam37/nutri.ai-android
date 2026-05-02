@@ -62,7 +62,7 @@ interface NutriApi {
     ): LogsForDateResponse
 
     @DELETE("history/log/{logId}")
-    suspend fun deleteLog(@Path("logId") logId: String): Map<String, String>
+    suspend fun deleteLog(@Path("logId") logId: String): Map<String, Boolean>
 
     @PATCH("history/log/{logId}")
     suspend fun updateLog(
@@ -107,7 +107,7 @@ interface NutriApi {
     suspend fun scanInventoryImage(@Body request: ScanImageRequest): ScanImageResponse
 
     @DELETE("inventory/{itemId}")
-    suspend fun deleteInventoryItem(@Path("itemId") itemId: String): Map<String, String>
+    suspend fun deleteInventoryItem(@Path("itemId") itemId: String): Map<String, Boolean>
 
     // Agents
     @POST("agents/trigger-coach")
