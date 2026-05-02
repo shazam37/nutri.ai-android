@@ -1916,8 +1916,10 @@ private fun InventoryCard(item: InventoryItem, onEdit: () -> Unit, onDelete: () 
                 item.macros?.let { m ->
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.padding(top = 4.dp)
+                        modifier = Modifier.padding(top = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
+                        Text("${m.calories.roundToInt()} kcal", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                         MacroPill("P", "${m.proteinG.roundToInt()}g", MaterialTheme.colorScheme.tertiary)
                         MacroPill("C", "${m.carbsG.roundToInt()}g", MaterialTheme.colorScheme.secondary)
                         MacroPill("F", "${m.fatG.roundToInt()}g", MaterialTheme.colorScheme.error)
