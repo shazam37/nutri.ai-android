@@ -67,8 +67,16 @@ class NutriRepository(
         return api.inventory(requireNotNull(authStore.userId))
     }
 
-    suspend fun addInventory(request: InventoryAddRequest): InventoryAddResponse {
-        return api.addInventory(request)
+    suspend fun addInventory(name: String, quantity: String, expiry: String, category: String, imageBase64: String? = null): InventoryAddResponse {
+        return api.addInventory(
+            InventoryAddRequest(
+                name = name,
+                quantity = quantity.ifBlank { null },
+                expiryDate = expiry.ifBlank { null },
+                category = category.ifBlank { null },
+                imageBase64 = imageBase64
+            )
+        )
     }
 
     suspend fun generatePlan(): MealPlanResponse {

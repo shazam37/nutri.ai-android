@@ -143,15 +143,8 @@ class NutriViewModel(application: Application) : AndroidViewModel(application) {
         state.value = state.value.copy(inventory = repository.inventory())
     }
 
-    fun addInventory(name: String, quantity: String, expiry: String, category: String) = runLoading {
-        repository.addInventory(
-            InventoryAddRequest(
-                name = name,
-                quantity = quantity.ifBlank { null },
-                expiryDate = expiry.ifBlank { null },
-                category = category.ifBlank { null }
-            )
-        )
+    fun addInventory(name: String, quantity: String, expiry: String, category: String, imageBase64: String? = null) = runLoading {
+        repository.addInventory(name, quantity, expiry, category, imageBase64)
         state.value = state.value.copy(inventory = repository.inventory())
     }
 

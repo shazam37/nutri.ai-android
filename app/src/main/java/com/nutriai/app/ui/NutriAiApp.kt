@@ -6,7 +6,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -100,7 +99,6 @@ import com.nutriai.app.data.CoachCard
 import com.nutriai.app.data.EatOption
 import com.nutriai.app.data.FoodItem
 import com.nutriai.app.data.FoodLog
-import com.nutriai.app.data.InventoryAddRequest
 import com.nutriai.app.data.InventoryItem
 import com.nutriai.app.data.LogsForDateResponse
 import com.nutriai.app.data.MacroFoodItem
@@ -146,9 +144,9 @@ private fun AuthScreen(viewModel: NutriViewModel) {
     var signup by rememberSaveable { mutableStateOf(false) } // Default to Login
     var step by rememberSaveable { mutableStateOf(1) } // 1: Login/Basic, 2: Body Info, 3: Goals
 
-    var email by rememberSaveable { mutableStateOf("demo@nutriai.app") }
+    var email by rememberSaveable { mutableStateOf("shazajmal37@gmail.com") }
     var password by rememberSaveable { mutableStateOf("testpass123") }
-    var name by rememberSaveable { mutableStateOf("Demo User") }
+    var name by rememberSaveable { mutableStateOf("Shazam") }
     var age by rememberSaveable { mutableStateOf("25") }
     var weight by rememberSaveable { mutableStateOf("70") }
     var height by rememberSaveable { mutableStateOf("175") }
@@ -458,10 +456,12 @@ private fun HomeScreen(viewModel: NutriViewModel) {
                 // Macro Tracking Row
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                     val logs = ui.logsForDate?.logs ?: emptyList()
+                    val totalProtein = logs.sumOf { it.totalMacros.proteinG }
                     val totalCarbs = logs.sumOf { it.totalMacros.carbsG }
                     val totalFats = logs.sumOf { it.totalMacros.fatG }
                     val totalFiber = logs.sumOf { it.totalMacros.fiberG }
 
+                    MacroMiniBox("Protein", totalProtein.roundToInt(), "g", Modifier.weight(1f))
                     MacroMiniBox("Carbs", totalCarbs.roundToInt(), "g", Modifier.weight(1f))
                     MacroMiniBox("Fats", totalFats.roundToInt(), "g", Modifier.weight(1f))
                     MacroMiniBox("Fiber", totalFiber.roundToInt(), "g", Modifier.weight(1f))
@@ -610,28 +610,6 @@ private fun HomeScreen(viewModel: NutriViewModel) {
         }
 
         item { ErrorText(ui.error) }
-    }
-}
-
-@Composable
-private fun MacroPill(label: String, value: String, color: Color) {
-    Surface(
-        shape = RoundedCornerShape(4.dp),
-        color = color.copy(alpha = 0.1f)
-    ) {
-        Row(Modifier.padding(horizontal = 6.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(label, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = color)
-            Spacer(Modifier.width(4.dp))
-            Text(value, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-        }
-    }
-}
-
-@Composable
-private fun MacroMiniBox(label: String, value: Int, unit: String, modifier: Modifier = Modifier) {
-    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text("$value$unit", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -891,7 +869,7 @@ private fun LogScreen(viewModel: NutriViewModel) {
 
                 Spacer(Modifier.height(12.dp))
 
-                        if (capturedImageUri != null) {
+                if (capturedImageUri != null) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1049,12 +1027,43 @@ private fun LogScreen(viewModel: NutriViewModel) {
 @Composable
 private fun InventoryScreen(viewModel: NutriViewModel) {
     val ui by viewModel.state
+    val context = LocalContext.current
     var name by rememberSaveable { mutableStateOf("") }
     var quantity by rememberSaveable { mutableStateOf("") }
     var expiry by rememberSaveable { mutableStateOf("") }
     var category by rememberSaveable { mutableStateOf("protein") }
     var editingItem by rememberSaveable { mutableStateOf<InventoryItem?>(null) }
     var showScanPrompt by remember { mutableStateOf(false) }
+    
+    // For single item capture
+    var tempCaptureUri by remember { mutableStateOf<Uri?>(null) }
+    var capturedImageUri by remember { mutableStateOf<Uri?>(null) }
+    var capturedImageBase64 by remember { mutableStateOf<String?>(null) }
+
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+        if (success) {
+            tempCaptureUri?.let { uri ->
+                capturedImageUri = uri
+                capturedImageBase64 = ImageUtils.uriToBase64(context, uri)
+            }
+        }
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+        if (isGranted) {
+            val file = File(context.externalCacheDir ?: context.cacheDir, "inv_item_${System.currentTimeMillis()}.jpg")
+            val uri = FileProvider.getUriForFile(context, "com.nutriai.app.fileprovider", file)
+            tempCaptureUri = uri
+            cameraLauncher.launch(uri)
+        }
+    }
+
+    val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri?.let {
+            capturedImageUri = it
+            capturedImageBase64 = ImageUtils.uriToBase64(context, it)
+        }
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -1073,22 +1082,35 @@ private fun InventoryScreen(viewModel: NutriViewModel) {
             }
         }
 
+        ui.inventory?.inventoryMacros?.let { macros ->
+            item {
+                CardBlock(container = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f)) {
+                    Text("Total Kitchen Nutrition", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        MacroMiniBox("Cals", macros.calories.roundToInt(), " kcal", Modifier.weight(1f))
+                        MacroMiniBox("Protein", macros.proteinG.roundToInt(), "g", Modifier.weight(1f))
+                        MacroMiniBox("Carbs", macros.carbsG.roundToInt(), "g", Modifier.weight(1f))
+                        MacroMiniBox("Fats", macros.fatG.roundToInt(), "g", Modifier.weight(1f))
+                    }
+                }
+            }
+        }
+
         if (showScanPrompt) {
             item {
                 CardBlock(container = MaterialTheme.colorScheme.primaryContainer) {
-                    Text("Scan Fridge or Groceries", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                    Text("Take a photo to bulk-add items using AI.", style = MaterialTheme.typography.bodySmall)
+                    Text("Bulk Scan Fridge", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    Text("AI will detect and add multiple items from one photo.", style = MaterialTheme.typography.bodySmall)
                     Spacer(Modifier.height(12.dp))
                     Button(
                         onClick = {
-                            // In real app, launch camera. Here we simulate base64
-                            viewModel.scanFridge("simulated_base64_fridge_image")
                             showScanPrompt = false
+                            permissionLauncher.launch(android.Manifest.permission.CAMERA)
                         },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text("Simulate Camera Scan")
+                        Text("Take Bulk Photo")
                     }
                     TextButton(onClick = { showScanPrompt = false }, modifier = Modifier.fillMaxWidth()) {
                         Text("Cancel")
@@ -1101,12 +1123,54 @@ private fun InventoryScreen(viewModel: NutriViewModel) {
             CardBlock {
                 Text(if (editingItem != null) "Edit Item" else "Add New Item", fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(8.dp))
-                OutlinedTextField(name, { name = it }, label = { Text("Food Name") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                
+                if (capturedImageUri != null) {
+                    Box(Modifier.size(100.dp).clip(RoundedCornerShape(8.dp))) {
+                        AsyncImage(
+                            model = capturedImageUri,
+                            contentDescription = "Item photo",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                        IconButton(
+                            onClick = { capturedImageUri = null; capturedImageBase64 = null },
+                            modifier = Modifier.align(Alignment.TopEnd).background(Color.Black.copy(alpha = 0.5f), CircleShape).size(24.dp)
+                        ) {
+                            Icon(Icons.Outlined.Delete, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                }
+
+                OutlinedTextField(name, { name = it }, label = { Text("Food Name") }, placeholder = { Text("Optional if photo provided") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(quantity, { quantity = it }, label = { Text("Quantity") }, modifier = Modifier.weight(1f), singleLine = true)
                     OutlinedTextField(expiry, { expiry = it }, label = { Text("Expiry (YYYY-MM-DD)") }, modifier = Modifier.weight(1f), singleLine = true)
                 }
                 
+                Spacer(Modifier.height(8.dp))
+                
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedButton(
+                        onClick = { permissionLauncher.launch(android.Manifest.permission.CAMERA) },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Icon(Icons.Outlined.CameraAlt, null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Photo", fontSize = 12.sp)
+                    }
+                    OutlinedButton(
+                        onClick = { galleryLauncher.launch("image/*") },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Icon(Icons.Outlined.PhotoLibrary, null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Gallery", fontSize = 12.sp)
+                    }
+                }
+
                 Spacer(Modifier.height(8.dp))
                 Text("Category", style = MaterialTheme.typography.labelMedium)
                 val categories = listOf("protein", "vegetable", "dairy", "grain", "spice", "fruit", "other")
@@ -1121,28 +1185,47 @@ private fun InventoryScreen(viewModel: NutriViewModel) {
                 }
 
                 Spacer(Modifier.height(12.dp))
-                Button(
-                    onClick = {
-                        if (editingItem != null) {
-                            viewModel.updateInventoryItem(
-                                editingItem!!.id,
-                                UpdateItemRequest(
-                                    quantity = quantity.ifBlank { null },
-                                    expiryDate = expiry.ifBlank { null }
-                                )
-                            )
-                            editingItem = null
-                        } else {
-                            viewModel.addInventory(name, quantity, expiry, category)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (capturedImageBase64 != null && name.isBlank()) {
+                        Button(
+                            onClick = {
+                                viewModel.scanFridge(capturedImageBase64!!)
+                                capturedImageUri = null
+                                capturedImageBase64 = null
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("Analyze & Add")
                         }
-                        name = ""
-                        quantity = ""
-                        expiry = ""
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text(if (editingItem != null) "Update Kitchen" else "Add to Kitchen")
+                    } else {
+                        Button(
+                            onClick = {
+                                if (editingItem != null) {
+                                    viewModel.updateInventoryItem(
+                                        editingItem!!.displayId,
+                                        UpdateItemRequest(
+                                            quantity = quantity.ifBlank { null },
+                                            expiryDate = expiry.ifBlank { null }
+                                        )
+                                    )
+                                    editingItem = null
+                                } else {
+                                    viewModel.addInventory(name, quantity, expiry, category, capturedImageBase64)
+                                }
+                                name = ""
+                                quantity = ""
+                                expiry = ""
+                                capturedImageUri = null
+                                capturedImageBase64 = null
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp),
+                            enabled = name.isNotBlank() || capturedImageBase64 != null
+                        ) {
+                            Text(if (editingItem != null) "Update Kitchen" else "Add to Kitchen")
+                        }
+                    }
                 }
                 if (editingItem != null) {
                     TextButton(onClick = { editingItem = null; name = ""; quantity = ""; expiry = ""; category = "protein" }, modifier = Modifier.fillMaxWidth()) {
@@ -1163,7 +1246,7 @@ private fun InventoryScreen(viewModel: NutriViewModel) {
                     category = item.category ?: "protein"
                 },
                 onDelete = {
-                    viewModel.deleteInventoryItem(item.id)
+                    viewModel.deleteInventoryItem(item.displayId)
                 }
             )
         }
@@ -1808,32 +1891,71 @@ private fun InventoryCard(item: InventoryItem, onEdit: () -> Unit, onDelete: () 
         shape = RoundedCornerShape(12.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(item.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                IconButton(onClick = onEdit) { Icon(Icons.Outlined.Edit, null, tint = MaterialTheme.colorScheme.primary) }
-                IconButton(onClick = onDelete) { Icon(Icons.Outlined.Delete, null, tint = MaterialTheme.colorScheme.error) }
-            }
-            
-            Text("${item.quantity ?: "Amount not set"} • ${item.category?.replaceFirstChar { it.uppercase() } ?: "Other"}")
-            
-            if (item.expiryDate != null) {
-                Spacer(Modifier.height(4.dp))
-                Surface(
-                    color = if (item.expiringSoon) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant,
-                    shape = RoundedCornerShape(4.dp)
-                ) {
-                    Text(
-                        text = if (item.expiringSoon) "🚨 Expiring: ${item.expiryDate}" else "📅 Expires: ${item.expiryDate}",
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (item.expiringSoon) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurfaceVariant
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (!item.scanImageUrl.isNullOrBlank()) {
+                Box(Modifier.size(80.dp).clip(RoundedCornerShape(8.dp))) {
+                    AsyncImage(
+                        model = item.scanImageUrl,
+                        contentDescription = item.name,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
                     )
                 }
+                Spacer(Modifier.width(16.dp))
             }
             
-            if (item.daysUntilExpiry != null) {
-                Text("${item.daysUntilExpiry} days left", style = MaterialTheme.typography.labelSmall)
+            Column(Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(item.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                    IconButton(onClick = onEdit) { Icon(Icons.Outlined.Edit, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp)) }
+                    IconButton(onClick = onDelete) { Icon(Icons.Outlined.Delete, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp)) }
+                }
+                
+                Text("${item.quantity ?: "Amount not set"} • ${item.category?.replaceFirstChar { it.uppercase() } ?: "Other"}")
+                
+                item.macros?.let { m ->
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(top = 4.dp)
+                    ) {
+                        MacroPill("P", "${m.proteinG.roundToInt()}g", MaterialTheme.colorScheme.tertiary)
+                        MacroPill("C", "${m.carbsG.roundToInt()}g", MaterialTheme.colorScheme.secondary)
+                        MacroPill("F", "${m.fatG.roundToInt()}g", MaterialTheme.colorScheme.error)
+                        
+                        if (item.micros.isNotEmpty()) {
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                            ) {
+                                Text(
+                                    "✨ Micros", 
+                                    style = MaterialTheme.typography.labelSmall, 
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
+                }
+                
+                if (item.expiryDate != null) {
+                    Spacer(Modifier.height(4.dp))
+                    Surface(
+                        color = if (item.expiringSoon) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(4.dp)
+                    ) {
+                        Text(
+                            text = if (item.expiringSoon) "🚨 Expiring: ${item.expiryDate}" else "📅 Expires: ${item.expiryDate}",
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (item.expiringSoon) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                
+                if (item.daysUntilExpiry != null) {
+                    Text("${item.daysUntilExpiry} days left", style = MaterialTheme.typography.labelSmall)
+                }
             }
         }
     }
@@ -1907,7 +2029,7 @@ private fun AdminScreen(viewModel: NutriViewModel) {
 
 @Composable
 private fun CardBlock(
-    container: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.surface,
+    container: Color = MaterialTheme.colorScheme.surface,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Card(
@@ -2098,5 +2220,27 @@ private fun SettingsScreen(viewModel: NutriViewModel) {
             }
         }
         item { ErrorText(ui.error) }
+    }
+}
+
+@Composable
+private fun MacroPill(label: String, value: String, color: Color) {
+    Surface(
+        shape = RoundedCornerShape(4.dp),
+        color = color.copy(alpha = 0.1f)
+    ) {
+        Row(Modifier.padding(horizontal = 6.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(label, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = color)
+            Spacer(Modifier.width(4.dp))
+            Text(value, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun MacroMiniBox(label: String, value: Int, unit: String, modifier: Modifier = Modifier) {
+    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("$value$unit", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
     }
 }

@@ -212,7 +212,14 @@ data class InventoryAddRequest(
     val name: String,
     val quantity: String? = null,
     @SerialName("expiry_date") val expiryDate: String? = null,
-    val category: String? = null
+    val category: String? = null,
+    @SerialName("image_base64") val imageBase64: String? = null,
+    val calories: Double? = null,
+    @SerialName("protein_g") val proteinG: Double? = null,
+    @SerialName("carbs_g") val carbsG: Double? = null,
+    @SerialName("fat_g") val fatG: Double? = null,
+    @SerialName("fiber_g") val fiberG: Double? = null,
+    val micros: Map<String, Double>? = null
 )
 
 @Serializable
@@ -227,25 +234,40 @@ data class InventoryAddResponse(
 data class InventoryResponse(
     val items: List<InventoryItem> = emptyList(),
     @SerialName("total_items") val totalItems: Int = 0,
-    @SerialName("expiring_soon_count") val expiringSoonCount: Int = 0
+    @SerialName("expiring_soon_count") val expiringSoonCount: Int = 0,
+    @SerialName("inventory_macros") val inventoryMacros: MacroTotals? = null,
+    @SerialName("items_with_nutrition") val itemsWithNutrition: Int = 0
 )
 
 @Serializable
 data class InventoryItem(
-    val id: String,
+    val id: String? = null,
+    @SerialName("item_id") val itemId: String? = null,
     val name: String,
     val quantity: String? = null,
     val category: String? = null,
     @SerialName("expiry_date") val expiryDate: String? = null,
     @SerialName("days_until_expiry") val daysUntilExpiry: Int? = null,
-    @SerialName("expiring_soon") val expiringSoon: Boolean = false
-)
+    @SerialName("expiring_soon") val expiringSoon: Boolean = false,
+    @SerialName("scan_image_url") val scanImageUrl: String? = null,
+    val macros: MacroTotals? = null,
+    val micros: Map<String, Double> = emptyMap(),
+    @SerialName("has_nutrition") val hasNutrition: Boolean = false
+) {
+    val displayId: String get() = id ?: itemId ?: ""
+}
 
 @Serializable
 data class UpdateItemRequest(
     val quantity: String? = null,
     @SerialName("expiry_date") val expiryDate: String? = null,
-    @SerialName("is_available") val isAvailable: Boolean? = null
+    @SerialName("is_available") val isAvailable: Boolean? = null,
+    val calories: Double? = null,
+    @SerialName("protein_g") val proteinG: Double? = null,
+    @SerialName("carbs_g") val carbsG: Double? = null,
+    @SerialName("fat_g") val fatG: Double? = null,
+    @SerialName("fiber_g") val fiberG: Double? = null,
+    val micros: Map<String, Double>? = null
 )
 
 @Serializable
@@ -259,7 +281,8 @@ data class ScanImageResponse(
     @SerialName("total_added") val totalAdded: Int = 0,
     @SerialName("scan_confidence") val scanConfidence: Double = 0.0,
     val notes: String = "",
-    val message: String = ""
+    val message: String = "",
+    @SerialName("scan_image_url") val scanImageUrl: String? = null
 )
 
 @Serializable
